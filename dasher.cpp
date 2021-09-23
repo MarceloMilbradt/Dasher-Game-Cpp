@@ -1,24 +1,43 @@
 #include "raylib.h"
 
+struct AnimData //struct que representa um objeto animavel
+{
+    Rectangle rec;     //hitbox da animacao
+    Vector2 pos;       //posicao da hitbox
+    int frame;         //frame da animacao
+    float updateTime;  //intervalo de atualizacao da animacao (s)
+    float runningTime; //tempo que a animacao esta rodando
+};
+
 int main()
 {
     //dimencoes da window
-    const int windowWidth = 800;
-    const int windowHeight = 450;
+    const int windowDimensions[2] = {
+        800, //width
+        450, //height
+    };
     //abrir a window
-    InitWindow(windowWidth, windowHeight, "Dasher");
+    InitWindow(windowDimensions[0], windowDimensions[1], "Dasher");
 
     //personagem
+    //textura
     Texture2D scarfy = LoadTexture("textures/scarfy.png");
-    Rectangle scarfyRec{
-        0.0,              // x
-        0.0,              // y
-        scarfy.width / 6, // width
-        scarfy.height     // height
-    };
-    Vector2 scarfyPos{
-        windowWidth / 2 - scarfyRec.width / 2, // x
-        windowHeight / 2 - scarfyRec.height    // y
+    AnimData scarfyData{
+        {
+            //rectangle(hitbox)
+            0.0,                     // x
+            0.0,                     // y
+            (float)scarfy.width / 6, // width
+            (float)scarfy.height     // height
+        },
+        {
+            //vector2(posicao)
+            (float)windowDimensions[0] / 2 - (scarfy.width / 6) / 2, // x
+            (float)windowDimensions[1] / 2 - (scarfy.height)         // y
+        },
+        0,        // frame
+        1 / 10.0, //updateTime
+        0,        // running time
     };
 
     bool isInAir = false;
@@ -26,27 +45,31 @@ int main()
     const int jumpVel = -600; //aceleração do pulo personagem no eixo y
 
     //Obstaculos
-    Texture2D nebula = LoadTexture("textures/12_nebula_spritesheet.png");
-    Rectangle nebulaRec{
-        0.0,                     // x
-        0.0,                     // y
-        nebula.width / (float)8, // width
-        nebula.height / (float)8 // height
+    Texture2D nebula = LoadTexture("textures/12_nebula_spritesheet.png"); //textura
+    AnimData nebulaData{
+        {
+            //rectangle(hitbox)
+            0.0,                     // x
+            0.0,                     // y
+            nebula.width / (float)8, // width
+            nebula.height / (float)8 // height
+        },
+        {
+            //vector2(posicao)
+            (float)windowDimensions[0],                    // x
+            (float)windowDimensions[1] - nebula.height / 8 // y
+        },
+        0,      // frame
+        1 / 10, //updateTime
+        0,      // running time
     };
 
-    Vector2 nebulaPos{
-        windowWidth,                    // x
-        windowHeight - nebulaRec.height // y
-    };
+    int nebVelocity = -200; //valocidade do obstaculo no eixo x
 
-    int nebVelocity = -600; //valocidade do obstaculo no eixo x
-    
     //variaveis de ambiente
-    int frame = 0;                       //frame atual da animação
-    const float updateTime = 1.0 / 10.0; //intervalo de tempo (s) até a proxima atualização da animação
-    float runningTime = 0;               //tempo consecutivo que o personagem está no chão
-    const int gravity = 1'000;           //gravidade por (pixles/s)/s
+    const int gravity = 1'000; //gravidade por (pixles/s)/s
 
+    //seta os frames a 60 fps
     SetTargetFPS(60);
     while (!WindowShouldClose())
     {
@@ -59,20 +82,32 @@ int main()
         BeginDrawing();
         ClearBackground(WHITE);
 
-        runningTime += dT;
+        scarfyData.runningTime += dT;
+        nebulaData.runningTime += dT;
         //valida se é necessaio atualizar a animação, a cada updateTime(1/10s) atualiza 1 frame
-        if (runningTime >= updateTime && !isInAir)
+        if (scarfyData.runningTime >= scarfyData.updateTime && !isInAir)
         {
-            scarfyRec.x = frame * scarfyRec.width; // pega a animação correspondente no spritesheet
-            frame++;
-            if (frame > 5) //se chegar no ultimo frame da animação volta para 0
+            scarfyData.rec.x = scarfyData.frame * scarfyData.rec.width; // pega a animação correspondente no spritesheet
+            scarfyData.frame++;
+            if (scarfyData.frame > 5) //se chegar no ultimo frame da animação volta para 0
             {
-                frame = 0;
+                scarfyData.frame = 0;
             }
-            runningTime = 0.0;
+            scarfyData.runningTime = 0.0;
+        }
+
+        if (nebulaData.runningTime >= nebulaData.updateTime)
+        {
+            nebulaData.rec.x = nebulaData.frame * nebulaData.rec.width; // pega a animação correspondente no spritesheet
+            nebulaData.frame++;
+            if (nebulaData.frame > 8) //se chegar no ultimo frame da animação volta para 0
+            {
+                nebulaData.frame = 0;
+            }
+            nebulaData.runningTime = 0.0;
         }
         //verifica se esta no chao
-        if (scarfyPos.y >= windowHeight - scarfyRec.height)
+        if (scarfyData.pos.y >= windowDimensions[1] - scarfyData.rec.height)
         {
             //no chão
             velocity = 0;
@@ -91,14 +126,14 @@ int main()
             velocity += jumpVel;
         }
         //atualiza a pos do personagem
-        scarfyPos.y += velocity * dT;
+        scarfyData.pos.y += velocity * dT;
 
         //atualiza a pos do obstaculo
-        nebulaPos.x += nebVelocity * dT;
+        nebulaData.pos.x += nebVelocity * dT;
 
         //desenha o personagem e o obstaculo
-        DrawTextureRec(scarfy, scarfyRec, scarfyPos, WHITE);
-        DrawTextureRec(nebula, nebulaRec, nebulaPos, WHITE);
+        DrawTextureRec(scarfy, scarfyData.rec, scarfyData.pos, WHITE);
+        DrawTextureRec(nebula, nebulaData.rec, nebulaData.pos, WHITE);
         //finaliza a renderizacao
         EndDrawing();
     }
